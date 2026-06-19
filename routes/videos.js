@@ -29,17 +29,21 @@ const getFallbackVideos = () =>
 const removeFallbackVideo = (id) =>
   writeMetadata(readMetadata().filter((v) => v._id !== id));
 
-const uploadToCloudinary = (buffer, options) =>
-  new Promise((resolve, reject) => {
-    const stream = cloudinary.uploader.upload_stream(options, (error, result) => {
-      if (error) reject(error);
-      else resolve(result);
-    });
-    stream.end(buffer);
-  });
+const tmpDir = path.join(__dirname, '..', 'uploads');
+
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    fs.mkdirSync(tmpDir, { recursive: true });
+    cb(null, tmpDir);
+  },
+  filename: (req, file, cb) => {
+    const safeName = file.originalname.replace(/[^a-zA-Z0-9.-]/g, '_');
+    cb(null, `tmp-${Date.now()}-${safeName}`);
+  }
+});
 
 const upload = multer({
-  storage: multer.memoryStorage(),
+  storage,
   limits: { fileSize: 1024 * 1024 * 100 }
 });
 
@@ -106,17 +110,21 @@ router.post('/', upload.single('file'), async (req, res) => {
     return res.status(400).json({ message: 'Title and file are required' });
   }
 
+  const tempFilePath = req.file.path;
+
   try {
     const baseName = req.file.originalname
       .replace(/\.[^/.]+$/, '')
       .replace(/[^a-zA-Z0-9-]/g, '_')
       .slice(0, 80);
-    const result = await uploadToCloudinary(req.file.buffer, {
+
+    const result = await cloudinary.uploader.upload(tempFilePath, {
       resource_type: 'video',
       folder: 'vidshop',
-      public_id: `${Date.now()}-${baseName}`,
-      overwrite: false
+      public_id: `${Date.now()}-${baseName}`
     });
+
+    fs.unlink(tempFilePath, () => {});
 
     const uploadData = {
       title: req.body.title,
@@ -142,6 +150,7 @@ router.post('/', upload.single('file'), async (req, res) => {
     writeMetadata(items);
     return res.status(201).json(fallbackVideo);
   } catch (error) {
+    fs.unlink(tempFilePath, () => {});
     console.error('Upload error:', error.message);
     return res.status(500).json({ message: 'Upload failed', error: error.message });
   }
