@@ -14,7 +14,7 @@ function VideoModal({ video, apiBase, onClose }) {
     };
   }, [onClose]);
 
-  const streamUrl = `${apiBase}/api/videos/${video._id}/stream`;
+  const streamUrl = video.cloudinaryUrl || `${apiBase}/api/videos/${video._id}/stream`;
   const downloadUrl = `${apiBase}/api/videos/${video._id}/download`;
 
   const formatSize = (bytes) => {
@@ -65,7 +65,7 @@ function VideoModal({ video, apiBase, onClose }) {
 }
 
 function VideoCard({ video, apiBase, onPlay }) {
-  const streamUrl = `${apiBase}/api/videos/${video._id}/stream`;
+  const streamUrl = video.cloudinaryUrl || `${apiBase}/api/videos/${video._id}/stream`;
 
   return (
     <div className="video-card">

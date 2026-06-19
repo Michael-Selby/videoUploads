@@ -4,51 +4,43 @@ const path = require('path');
 const fs = require('fs');
 const mongoose = require('mongoose');
 const Video = require('../models/Video');
+const cloudinary = require('../config/cloudinary');
 
 const router = express.Router();
 const metadataFilePath = path.join(__dirname, '..', 'uploads', 'metadata.json');
 
 const readMetadata = () => {
-  if (!fs.existsSync(metadataFilePath)) {
-    return [];
-  }
-
+  if (!fs.existsSync(metadataFilePath)) return [];
   try {
-    const raw = fs.readFileSync(metadataFilePath, 'utf8');
-    return JSON.parse(raw);
-  } catch (error) {
+    return JSON.parse(fs.readFileSync(metadataFilePath, 'utf8'));
+  } catch {
     return [];
   }
 };
 
 const writeMetadata = (items) => {
+  fs.mkdirSync(path.dirname(metadataFilePath), { recursive: true });
   fs.writeFileSync(metadataFilePath, JSON.stringify(items, null, 2));
 };
 
-const getFallbackVideos = () => {
-  const items = readMetadata();
-  return items.sort((a, b) => new Date(b.uploadedAt) - new Date(a.uploadedAt));
-};
+const getFallbackVideos = () =>
+  readMetadata().sort((a, b) => new Date(b.uploadedAt) - new Date(a.uploadedAt));
 
-const saveFallbackVideo = (video) => {
-  const items = readMetadata();
-  items.push(video);
-  writeMetadata(items);
-  return video;
-};
+const removeFallbackVideo = (id) =>
+  writeMetadata(readMetadata().filter((v) => v._id !== id));
 
-const removeFallbackVideo = (id) => {
-  const items = readMetadata().filter((video) => video._id !== id);
-  writeMetadata(items);
-};
+const uploadToCloudinary = (buffer, options) =>
+  new Promise((resolve, reject) => {
+    const stream = cloudinary.uploader.upload_stream(options, (error, result) => {
+      if (error) reject(error);
+      else resolve(result);
+    });
+    stream.end(buffer);
+  });
 
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => cb(null, path.join(__dirname, '..', 'uploads')),
-  filename: (req, file, cb) => {
-    const timestamp = Date.now();
-    const safeName = file.originalname.replace(/[^a-zA-Z0-9.-]/g, '_');
-    cb(null, `${timestamp}-${safeName}`);
-  }
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 1024 * 1024 * 100 }
 });
 
 router.post('/auth', (req, res) => {
@@ -59,8 +51,6 @@ router.post('/auth', (req, res) => {
   res.status(401).json({ message: 'Invalid admin key' });
 });
 
-const upload = multer({ storage, limits: { fileSize: 1024 * 1024 * 500 } });
-
 router.get('/', async (req, res) => {
   try {
     const page = Math.max(1, parseInt(req.query.page, 10) || 1);
@@ -68,27 +58,20 @@ router.get('/', async (req, res) => {
 
     if (mongoose.connection.readyState !== 1) {
       const allVideos = getFallbackVideos();
-      const query = (req.query.q || '').trim().toLowerCase();
-      const filtered = query
-        ? allVideos.filter((video) => video.title.toLowerCase().includes(query))
+      const q = (req.query.q || '').trim().toLowerCase();
+      const filtered = q
+        ? allVideos.filter((v) => v.title.toLowerCase().includes(q))
         : allVideos;
-
       const count = filtered.length;
-      const videos = filtered.slice((page - 1) * limit, page * limit);
-
       return res.json({
-        videos,
-        count,
-        page,
-        limit,
+        videos: filtered.slice((page - 1) * limit, page * limit),
+        count, page, limit,
         totalPages: Math.max(1, Math.ceil(count / limit))
       });
     }
 
     const query = {};
-    if (req.query.q) {
-      query.title = { $regex: req.query.q, $options: 'i' };
-    }
+    if (req.query.q) query.title = { $regex: req.query.q, $options: 'i' };
 
     const count = await Video.countDocuments(query);
     const videos = await Video.find(query)
@@ -96,13 +79,7 @@ router.get('/', async (req, res) => {
       .skip((page - 1) * limit)
       .limit(limit);
 
-    return res.json({
-      videos,
-      count,
-      page,
-      limit,
-      totalPages: Math.ceil(count / limit)
-    });
+    return res.json({ videos, count, page, limit, totalPages: Math.ceil(count / limit) });
   } catch (error) {
     console.error('Fetch videos error:', error.message);
     return res.status(500).json({ message: 'Cannot fetch videos' });
@@ -114,15 +91,23 @@ router.post('/', upload.single('file'), async (req, res) => {
   if (adminKey !== process.env.ADMIN_KEY) {
     return res.status(401).json({ message: 'Unauthorized' });
   }
-
   if (!req.file || !req.body.title) {
     return res.status(400).json({ message: 'Title and file are required' });
   }
 
   try {
+    const safeName = req.file.originalname.replace(/[^a-zA-Z0-9.-]/g, '_');
+    const result = await uploadToCloudinary(req.file.buffer, {
+      resource_type: 'video',
+      folder: 'vidshop',
+      public_id: `${Date.now()}-${safeName}`,
+      overwrite: false
+    });
+
     const uploadData = {
       title: req.body.title,
-      filename: req.file.filename,
+      cloudinaryUrl: result.secure_url,
+      cloudinaryPublicId: result.public_id,
       originalName: req.file.originalname,
       mimeType: req.file.mimetype,
       size: req.file.size,
@@ -134,18 +119,25 @@ router.post('/', upload.single('file'), async (req, res) => {
       return res.status(201).json(video);
     }
 
-    const fallbackVideo = saveFallbackVideo({
+    const fallbackVideo = {
       _id: `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
       ...uploadData
-    });
+    };
+    const items = readMetadata();
+    items.push(fallbackVideo);
+    writeMetadata(items);
     return res.status(201).json(fallbackVideo);
   } catch (error) {
-    console.error('Upload save error:', error.message);
-    return res.status(500).json({
-      message: 'Could not save video',
-      error: error.message
-    });
+    console.error('Upload error:', error.message);
+    return res.status(500).json({ message: 'Upload failed', error: error.message });
   }
+});
+
+router.use((err, req, res, next) => {
+  if (err.code === 'LIMIT_FILE_SIZE') {
+    return res.status(400).json({ message: 'Video too large. Max size is 100MB.' });
+  }
+  next(err);
 });
 
 router.delete('/:id', async (req, res) => {
@@ -155,15 +147,17 @@ router.delete('/:id', async (req, res) => {
   }
 
   try {
-    if (mongoose.connection.readyState === 1) {
-      const video = await Video.findById(req.params.id);
-      if (!video) {
-        return res.status(404).json({ message: 'Video not found' });
-      }
+    let video = null;
 
-      const filePath = path.join(__dirname, '..', 'uploads', video.filename);
-      if (fs.existsSync(filePath)) {
-        fs.unlinkSync(filePath);
+    if (mongoose.connection.readyState === 1) {
+      video = await Video.findById(req.params.id);
+      if (!video) return res.status(404).json({ message: 'Video not found' });
+
+      if (video.cloudinaryPublicId) {
+        await cloudinary.uploader.destroy(video.cloudinaryPublicId, { resource_type: 'video' });
+      } else if (video.filename) {
+        const filePath = path.join(__dirname, '..', 'uploads', video.filename);
+        if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
       }
 
       await Video.deleteOne({ _id: req.params.id });
@@ -171,16 +165,12 @@ router.delete('/:id', async (req, res) => {
     }
 
     const fallbackVideos = readMetadata();
-    const video = fallbackVideos.find((item) => item._id === req.params.id);
-    if (!video) {
-      return res.status(404).json({ message: 'Video not found' });
-    }
+    video = fallbackVideos.find((v) => v._id === req.params.id);
+    if (!video) return res.status(404).json({ message: 'Video not found' });
 
-    const filePath = path.join(__dirname, '..', 'uploads', video.filename);
-    if (fs.existsSync(filePath)) {
-      fs.unlinkSync(filePath);
+    if (video.cloudinaryPublicId) {
+      await cloudinary.uploader.destroy(video.cloudinaryPublicId, { resource_type: 'video' });
     }
-
     removeFallbackVideo(req.params.id);
     return res.json({ message: 'Video deleted successfully' });
   } catch (error) {
@@ -189,59 +179,18 @@ router.delete('/:id', async (req, res) => {
   }
 });
 
-router.use((err, req, res, next) => {
-  if (err.code === 'LIMIT_FILE_SIZE') {
-    return res.status(400).json({ message: 'Video file too large. Max size is 500MB.' });
-  }
-  next(err);
-});
-
 router.get('/:id/stream', async (req, res) => {
   try {
     let video = null;
-
     if (mongoose.connection.readyState === 1) {
       video = await Video.findById(req.params.id);
     } else {
-      const fallbackVideos = readMetadata();
-      video = fallbackVideos.find((item) => item._id === req.params.id);
+      video = readMetadata().find((v) => v._id === req.params.id);
     }
+    if (!video) return res.status(404).json({ message: 'Video not found' });
+    if (!video.cloudinaryUrl) return res.status(404).json({ message: 'No stream URL available' });
 
-    if (!video) {
-      return res.status(404).json({ message: 'Video not found' });
-    }
-
-    const filePath = path.join(__dirname, '..', 'uploads', video.filename);
-    if (!fs.existsSync(filePath)) {
-      return res.status(404).json({ message: 'File not found' });
-    }
-
-    const stat = fs.statSync(filePath);
-    const fileSize = stat.size;
-    const contentType = video.mimeType || 'video/mp4';
-    const range = req.headers.range;
-
-    if (range) {
-      const [startStr, endStr] = range.replace(/bytes=/, '').split('-');
-      const start = parseInt(startStr, 10);
-      const end = endStr ? parseInt(endStr, 10) : fileSize - 1;
-      const chunkSize = end - start + 1;
-
-      res.writeHead(206, {
-        'Content-Range': `bytes ${start}-${end}/${fileSize}`,
-        'Accept-Ranges': 'bytes',
-        'Content-Length': chunkSize,
-        'Content-Type': contentType
-      });
-      fs.createReadStream(filePath, { start, end }).pipe(res);
-    } else {
-      res.writeHead(200, {
-        'Content-Length': fileSize,
-        'Content-Type': contentType,
-        'Accept-Ranges': 'bytes'
-      });
-      fs.createReadStream(filePath).pipe(res);
-    }
+    return res.redirect(video.cloudinaryUrl);
   } catch (error) {
     console.error('Stream error:', error.message);
     return res.status(500).json({ message: 'Stream failed' });
@@ -251,20 +200,28 @@ router.get('/:id/stream', async (req, res) => {
 router.get('/:id/download', async (req, res) => {
   try {
     let video = null;
-
     if (mongoose.connection.readyState === 1) {
       video = await Video.findById(req.params.id);
     } else {
-      const fallbackVideos = readMetadata();
-      video = fallbackVideos.find((item) => item._id === req.params.id);
+      video = readMetadata().find((v) => v._id === req.params.id);
+    }
+    if (!video) return res.status(404).json({ message: 'Video not found' });
+
+    if (video.cloudinaryPublicId) {
+      const downloadUrl = cloudinary.url(video.cloudinaryPublicId, {
+        resource_type: 'video',
+        flags: `attachment:${video.originalName.replace(/[^a-zA-Z0-9.-]/g, '_')}`,
+        secure: true
+      });
+      return res.redirect(downloadUrl);
     }
 
-    if (!video) {
-      return res.status(404).json({ message: 'Video not found' });
+    if (video.filename) {
+      const filePath = path.join(__dirname, '..', 'uploads', video.filename);
+      return res.download(filePath, video.originalName || video.filename);
     }
 
-    const filePath = path.join(__dirname, '..', 'uploads', video.filename);
-    return res.download(filePath, video.originalName || video.originalName || video.filename);
+    return res.status(404).json({ message: 'File not available' });
   } catch (error) {
     console.error('Download error:', error.message);
     return res.status(500).json({ message: 'Download failed' });
