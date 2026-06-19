@@ -15,3 +15,15 @@ services:
         sync: false
       - key: PORT
         value: 10000
+
+  - type: static
+    name: vidshop-client
+    buildCommand: cd client && npm install && npm run build
+    staticPublishPath: client/dist
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
+    envVars:
+      - key: VITE_API_URL
+        sync: false
