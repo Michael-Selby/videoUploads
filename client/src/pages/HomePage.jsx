@@ -1,4 +1,4 @@
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 
 function HomePage({
   videos,
@@ -10,93 +10,144 @@ function HomePage({
   handleSearch,
   changePage,
   currentUser,
-  handleLogout,
-  setAuthMode
+  handleLogout
 }) {
   const navigate = useNavigate();
   const apiBase = import.meta.env.VITE_API_URL || '';
 
+  const initials = currentUser?.name
+    ? currentUser.name.split(' ').map((w) => w[0]).join('').toUpperCase().slice(0, 2)
+    : '';
+
+  const isError = message && (
+    message.toLowerCase().includes('fail') ||
+    message.toLowerCase().includes('invalid') ||
+    message.toLowerCase().includes('error')
+  );
+
   return (
-    <div className="home-shell">
-      <header className="home-header">
-        <div>
-          <span className="eyebrow">VidShop</span>
-          <h1>Browse videos</h1>
-        </div>
-        <div className="home-header__actions">
+    <div className="app-shell">
+      <nav className="navbar">
+        <Link to="/" className="navbar-brand">
+          <div className="navbar-logo">V</div>
+          <span className="navbar-name">VidShop</span>
+        </Link>
+
+        <div className="navbar-actions">
           {currentUser ? (
             <>
-              <span className="user-pill">{currentUser.name}</span>
-              <button className="logout-button" onClick={handleLogout}>Logout</button>
+              <div className="user-pill">
+                <div className="user-avatar">{initials}</div>
+                {currentUser.name}
+              </div>
+              <button className="btn btn-ghost btn-sm" onClick={handleLogout}>
+                Logout
+              </button>
             </>
           ) : (
             <>
-              <button className="logout-button" onClick={() => navigate('/login')}>
+              <button className="btn btn-ghost btn-sm" onClick={() => navigate('/login')}>
                 Login
               </button>
-              <button className="logout-button" onClick={() => navigate('/signup')}>
+              <button className="btn btn-primary btn-sm" onClick={() => navigate('/signup')}>
                 Sign up
               </button>
             </>
           )}
-          <button
-            className="logout-button admin-button"
-            onClick={() => navigate('/admin')}
-            style={{ background: '#0055DA', color: '#fff', fontWeight: 700 }}
-          >
+          <button className="btn btn-ghost btn-sm" onClick={() => navigate('/admin')}>
             Admin
           </button>
         </div>
-      </header>
+      </nav>
 
-      <section className="card list-card home-list-card">
-        <div className="list-header">
-          <h2>Available videos</h2>
-          <form onSubmit={handleSearch} className="search-form">
+      <div className="home-page">
+        <div className="home-top">
+          <div>
+            <span className="section-eyebrow">Library</span>
+            <h1 className="section-title">Browse Videos</h1>
+            <p className="section-subtitle">{videos.length > 0 ? `${videos.length} videos on this page` : 'No videos yet'}</p>
+          </div>
+
+          <form onSubmit={handleSearch} className="search-bar">
             <input
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search videos"
+              placeholder="Search videos…"
             />
-            <button type="submit">Search</button>
+            <button type="submit" className="btn btn-primary btn-sm">
+              Search
+            </button>
           </form>
         </div>
-        {message && <p className="message">{message}</p>}
 
-        <ul className="video-list">
-          {videos.map((video) => (
-            <li key={video._id} className="video-item">
-              <div>
-                <strong>{video.title}</strong>
-                <p>{new Date(video.uploadedAt).toLocaleString()}</p>
+        {message && (
+          <div className={`message-banner ${isError ? 'message-banner--error' : 'message-banner--success'}`}>
+            {message}
+          </div>
+        )}
+
+        <div className="video-grid">
+          {videos.length === 0 ? (
+            <div className="empty-state">
+              <div style={{ fontSize: '3rem' }}>▶</div>
+              <h3>No videos found</h3>
+              <p>Try a different search or check back later.</p>
+            </div>
+          ) : (
+            videos.map((video) => (
+              <div key={video._id} className="video-card">
+                <div className="video-card__thumb">▶</div>
+                <div className="video-card__body">
+                  <p className="video-card__title">{video.title}</p>
+                  <p className="video-card__meta">
+                    {new Date(video.uploadedAt).toLocaleDateString('en-GB', {
+                      day: 'numeric',
+                      month: 'short',
+                      year: 'numeric'
+                    })}
+                  </p>
+                  <div className="video-card__footer">
+                    <span className="video-card__badge">MP4</span>
+                    <button
+                      type="button"
+                      className="btn btn-primary btn-sm"
+                      onClick={() =>
+                        window.open(
+                          `${apiBase}/api/videos/${video._id}/download`,
+                          '_blank',
+                          'noopener,noreferrer'
+                        )
+                      }
+                    >
+                      Download
+                    </button>
+                  </div>
+                </div>
               </div>
-              <button
-                type="button"
-                className="download-button"
-                onClick={() =>
-                  window.open(
-                    `${apiBase}/api/videos/${video._id}/download`,
-                    '_blank',
-                    'noopener,noreferrer'
-                  )
-                }
-              >
-                Download
-              </button>
-            </li>
-          ))}
-        </ul>
-
-        <div className="pagination">
-          <button onClick={() => changePage(page - 1)} disabled={page <= 1}>
-            Previous
-          </button>
-          <span>Page {page} of {totalPages}</span>
-          <button onClick={() => changePage(page + 1)} disabled={page >= totalPages}>
-            Next
-          </button>
+            ))
+          )}
         </div>
-      </section>
+
+        {totalPages > 1 && (
+          <div className="pagination">
+            <button
+              className="btn btn-ghost btn-sm"
+              onClick={() => changePage(page - 1)}
+              disabled={page <= 1}
+            >
+              ← Previous
+            </button>
+            <span className="pagination-info">Page {page} of {totalPages}</span>
+            <button
+              className="btn btn-ghost btn-sm"
+              onClick={() => changePage(page + 1)}
+              disabled={page >= totalPages}
+            >
+              Next →
+            </button>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

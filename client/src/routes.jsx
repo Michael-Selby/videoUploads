@@ -54,11 +54,11 @@ function AppRoutes({
       />
       <Route
         path="/login"
-        element={<LoginPage setCurrentUser={setCurrentUser} setMessage={setMessage} />}
+        element={<LoginPage setCurrentUser={setCurrentUser} />}
       />
       <Route
         path="/signup"
-        element={<SignupPage setCurrentUser={setCurrentUser} setMessage={setMessage} />}
+        element={<SignupPage setCurrentUser={setCurrentUser} />}
       />
       <Route
         path="/admin"
@@ -86,7 +86,6 @@ function AppRoutes({
             page={page}
             totalPages={totalPages}
             changePage={changePage}
-            setAuthMode={setAuthMode}
           />
         }
       />
