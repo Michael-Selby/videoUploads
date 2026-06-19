@@ -51,14 +51,13 @@ function VideoModal({ video, apiBase, onClose }) {
         </div>
 
         <div className="modal-footer">
-          <a
-            href={downloadUrl}
+          <button
+            type="button"
             className="btn btn-primary"
-            download
-            rel="noopener noreferrer"
+            onClick={() => window.open(downloadUrl, '_blank', 'noopener,noreferrer')}
           >
             ↓ Download
-          </a>
+          </button>
         </div>
       </div>
     </div>
@@ -94,14 +93,13 @@ function VideoCard({ video, apiBase, onPlay }) {
           <button type="button" className="btn btn-ghost btn-sm" onClick={onPlay}>
             Watch
           </button>
-          <a
-            href={`${apiBase}/api/videos/${video._id}/download`}
+          <button
+            type="button"
             className="btn btn-primary btn-sm"
-            download
-            rel="noopener noreferrer"
+            onClick={() => window.open(`${apiBase}/api/videos/${video._id}/download`, '_blank', 'noopener,noreferrer')}
           >
             Download
-          </a>
+          </button>
         </div>
       </div>
     </div>

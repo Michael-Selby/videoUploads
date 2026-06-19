@@ -11,9 +11,18 @@ fs.mkdirSync(path.join(__dirname, 'uploads'), { recursive: true });
 connectDB();
 
 const app = express();
-app.use(cors());
+app.use(cors({
+  origin: '*',
+  allowedHeaders: ['Content-Type', 'x-admin-key', 'Range'],
+  exposedHeaders: ['Content-Range', 'Accept-Ranges', 'Content-Length']
+}));
 app.use(express.json());
-app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+app.use('/uploads', express.static(path.join(__dirname, 'uploads'), {
+  setHeaders: (res) => {
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Expose-Headers', 'Content-Range, Accept-Ranges, Content-Length');
+  }
+}));
 app.use('/api/videos', videosRouter);
 
 if (process.env.NODE_ENV === 'production') {
