@@ -110,7 +110,7 @@ function App() {
         fetchVideos(page, search);
       } else {
         const data = JSON.parse(xhr.responseText || '{}');
-        setMessage(data.message || 'Upload failed.');
+        setMessage(data.error ? `${data.message}: ${data.error}` : data.message || 'Upload failed.');
       }
     };
 

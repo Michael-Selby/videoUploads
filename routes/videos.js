@@ -96,11 +96,14 @@ router.post('/', upload.single('file'), async (req, res) => {
   }
 
   try {
-    const safeName = req.file.originalname.replace(/[^a-zA-Z0-9.-]/g, '_');
+    const baseName = req.file.originalname
+      .replace(/\.[^/.]+$/, '')
+      .replace(/[^a-zA-Z0-9-]/g, '_')
+      .slice(0, 80);
     const result = await uploadToCloudinary(req.file.buffer, {
       resource_type: 'video',
       folder: 'vidshop',
-      public_id: `${Date.now()}-${safeName}`,
+      public_id: `${Date.now()}-${baseName}`,
       overwrite: false
     });
 
