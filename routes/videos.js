@@ -196,6 +196,58 @@ router.use((err, req, res, next) => {
   next(err);
 });
 
+router.get('/:id/stream', async (req, res) => {
+  try {
+    let video = null;
+
+    if (mongoose.connection.readyState === 1) {
+      video = await Video.findById(req.params.id);
+    } else {
+      const fallbackVideos = readMetadata();
+      video = fallbackVideos.find((item) => item._id === req.params.id);
+    }
+
+    if (!video) {
+      return res.status(404).json({ message: 'Video not found' });
+    }
+
+    const filePath = path.join(__dirname, '..', 'uploads', video.filename);
+    if (!fs.existsSync(filePath)) {
+      return res.status(404).json({ message: 'File not found' });
+    }
+
+    const stat = fs.statSync(filePath);
+    const fileSize = stat.size;
+    const contentType = video.mimeType || 'video/mp4';
+    const range = req.headers.range;
+
+    if (range) {
+      const [startStr, endStr] = range.replace(/bytes=/, '').split('-');
+      const start = parseInt(startStr, 10);
+      const end = endStr ? parseInt(endStr, 10) : fileSize - 1;
+      const chunkSize = end - start + 1;
+
+      res.writeHead(206, {
+        'Content-Range': `bytes ${start}-${end}/${fileSize}`,
+        'Accept-Ranges': 'bytes',
+        'Content-Length': chunkSize,
+        'Content-Type': contentType
+      });
+      fs.createReadStream(filePath, { start, end }).pipe(res);
+    } else {
+      res.writeHead(200, {
+        'Content-Length': fileSize,
+        'Content-Type': contentType,
+        'Accept-Ranges': 'bytes'
+      });
+      fs.createReadStream(filePath).pipe(res);
+    }
+  } catch (error) {
+    console.error('Stream error:', error.message);
+    return res.status(500).json({ message: 'Stream failed' });
+  }
+});
+
 router.get('/:id/download', async (req, res) => {
   try {
     let video = null;
