@@ -127,7 +127,7 @@ function AdminDashboard({
                       <div style={{ fontSize: '2rem', marginBottom: '8px' }}>↑</div>
                       <div>{file ? file.name : 'Click to choose a video file'}</div>
                       <div style={{ fontSize: '0.78rem', marginTop: '6px', color: 'var(--muted)' }}>
-                        Max 200 MB
+                        Max 100 MB
                       </div>
                     </label>
                   </div>
