@@ -25,6 +25,7 @@ function AdminDashboard({
   changePage,
   setAuthMode
 }) {
+  const apiBase = import.meta.env.VITE_API_URL || '';
   return (
     <div className="dashboard-shell">
       <aside className="sidebar">
@@ -122,7 +123,13 @@ function AdminDashboard({
                   <button
                     type="button"
                     className="download-button"
-                    onClick={() => window.open(`/api/videos/${video._id}/download`, '_blank', 'noopener,noreferrer')}
+                    onClick={() =>
+                      window.open(
+                        `${apiBase}/api/videos/${video._id}/download`,
+                        '_blank',
+                        'noopener,noreferrer'
+                      )
+                    }
                   >
                     Download
                   </button>

@@ -14,6 +14,7 @@ function HomePage({
   setAuthMode
 }) {
   const navigate = useNavigate();
+  const apiBase = import.meta.env.VITE_API_URL || '';
 
   return (
     <div className="home-shell">
@@ -72,7 +73,13 @@ function HomePage({
               <button
                 type="button"
                 className="download-button"
-                onClick={() => window.open(`/api/videos/${video._id}/download`, '_blank', 'noopener,noreferrer')}
+                onClick={() =>
+                  window.open(
+                    `${apiBase}/api/videos/${video._id}/download`,
+                    '_blank',
+                    'noopener,noreferrer'
+                  )
+                }
               >
                 Download
               </button>

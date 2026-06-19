@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
 import AppRoutes from './routes';
 
-const API_URL = '/api/videos';
+const API_BASE = import.meta.env.VITE_API_URL || '';
+const API_URL = `${API_BASE}/api/videos`;
 const MAX_UPLOAD_BYTES = 1024 * 1024 * 200; // 200MB client-side limit
 
 function App() {
