@@ -1,0 +1,17 @@
+services:
+  - type: web
+    name: vidshop
+    env: node
+    region: oregon
+    plan: free
+    buildCommand: npm install && npm run build
+    startCommand: npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: MONGODB_URI
+        sync: false
+      - key: ADMIN_KEY
+        sync: false
+      - key: PORT
+        value: 10000
