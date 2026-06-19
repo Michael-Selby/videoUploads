@@ -43,6 +43,17 @@ const upload = multer({
   limits: { fileSize: 1024 * 1024 * 100 }
 });
 
+router.get('/health', (req, res) => {
+  res.json({
+    cloudinary: {
+      cloud_name: process.env.CLOUDINARY_CLOUD_NAME || 'NOT SET',
+      api_key: process.env.CLOUDINARY_API_KEY ? 'SET' : 'NOT SET',
+      api_secret: process.env.CLOUDINARY_API_SECRET ? 'SET' : 'NOT SET'
+    },
+    mongodb: mongoose.connection.readyState === 1 ? 'connected' : 'disconnected'
+  });
+});
+
 router.post('/auth', (req, res) => {
   const adminKey = req.header('x-admin-key');
   if (adminKey === process.env.ADMIN_KEY) {
