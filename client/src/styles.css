@@ -1,13 +1,13 @@
 :root {
   color-scheme: dark;
   font-family: Inter, 'Segoe UI', Roboto, sans-serif;
-  --bg: #08080f;
-  --surface: #0f0f1c;
-  --surface-alt: #14142a;
-  --surface-hover: #1a1a35;
-  --text: #e8e8f8;
-  --text-dim: #b0b0d0;
-  --muted: #6868a0;
+  --bg: #000000;
+  --surface: #0f0f0f;
+  --surface-alt: #161616;
+  --surface-hover: #1c1c1c;
+  --text: #e0e0e0;
+  --text-dim: #a0a0a0;
+  --muted: #606060;
   --primary: #7c6fff;
   --primary-dark: #6358e0;
   --primary-glow: rgba(124, 111, 255, 0.2);
@@ -15,10 +15,10 @@
   --danger: #ff4d6d;
   --danger-bg: rgba(255, 77, 109, 0.1);
   --success: #00e5a0;
-  --border: rgba(255, 255, 255, 0.07);
-  --border-bright: rgba(255, 255, 255, 0.14);
-  --shadow: 0 24px 64px rgba(0, 0, 0, 0.6);
-  --shadow-sm: 0 4px 16px rgba(0, 0, 0, 0.4);
+  --border: rgba(255, 255, 255, 0.08);
+  --border-bright: rgba(255, 255, 255, 0.12);
+  --shadow: 0 24px 64px rgba(0, 0, 0, 0.8);
+  --shadow-sm: 0 4px 16px rgba(0, 0, 0, 0.6);
   --radius: 16px;
   --radius-sm: 10px;
   --radius-xs: 6px;
@@ -231,7 +231,7 @@ button {
   font-size: 2rem;
   font-weight: 800;
   letter-spacing: -0.04em;
-  color: var(--text);
+  color: #c8c8c8;
 }
 
 .section-subtitle {
